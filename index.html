@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Шоурум Бисквит – Внутренний Учет</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-biskuit: #FAF7F2;
+      --terracotta: #C6593A;
+      --terracotta-hover: #b54a2e;
+      --clay-dark: #23201D;
+      --clay-muted: #5e5852;
+      --border-sand: #E8E1D7;
+    }
+    body {
+      font-family: 'Manrope', sans-serif;
+      background-color: var(--bg-biskuit);
+      color: var(--clay-dark);
+      margin: 0;
+      padding: 0;
+    }
+    h1, h2, h3, h4, .font-serif {
+      font-family: 'Cormorant Garamond', serif;
+    }
+    
+    /* Утилиты для скроллбара */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-biskuit); }
+    ::-webkit-scrollbar-thumb { background: #d1c8bd; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #baae9f; }
+    
+    /* Анимации */
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .toast-enter { animation: toastEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    @keyframes toastEnter { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+    
+    /* Кастомные радиокнопки для выбора статуса */
+    .status-radio:checked + label.status-avail { background-color: #dcfce7; border-color: #22c55e; color: #166534; }
+    .status-radio:checked + label.status-book { background-color: #fef08a; border-color: #eab308; color: #854d0e; }
+    .status-radio:checked + label.status-sold { background-color: #fee2e2; border-color: #ef4444; color: #991b1b; }
+    
+    /* Скрытие элементов для печати */
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+      @page { size: A4; margin: 10mm; }
+    }
+
+    /* Модалки */
+    .modal-backdrop {
+      background-color: rgba(35, 32, 29, 0.6);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+  <header class="bg-white border-b border-[#E8E1D7] flex items-center justify-between px-6 py-4 flex-shrink-0 relative z-20">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-full bg-[#C6593A] flex items-center justify-center text-white font-serif text-2xl font-bold shadow-md">
+        Б
+      </div>
+      <div>
+        <h1 class="text-2xl font-bold text-[#23201D] leading-none">Шоурум Бисквит</h1>
+        <p class="text-sm text-[#5e5852] mt-1">Зверинская 13/5, Санкт-Петербург • <a href="https://biskuit.ru/showroom_gallery" target="_blank" class="text-[#C6593A] hover:underline">Публичная витрина ↗</a></p>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-3">
+      <button onclick="openSyncModal()" class="flex items-center gap-2 bg-[#FAF7F2] hover:bg-[#F0EBE1] border border-[#E8E1D7] px-4 py-2 rounded-full text-sm font-medium transition-colors">
+        <i data-lucide="refresh-cw" class="w-4 h-4" id="mainSyncIcon"></i>
+        <span>Таблица</span>
+      </button>
+      <button onclick="openAddModal()" class="flex items-center gap-2 bg-[#C6593A] hover:bg-[#b54a2e] text-white px-5 py-2 rounded-full text-sm font-medium transition-all shadow-md hover:shadow-lg">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span>Добавить работу</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="bg-white border-b border-[#E8E1D7] px-6 py-3 flex-shrink-0 z-10 flex flex-wrap justify-between items-center gap-4">
+    
+    <!-- Вкладки (Tabs) -->
+    <div class="flex bg-[#FAF7F2] p-1 rounded-full border border-[#E8E1D7]">
+      <button onclick="switchTab('gallery')" id="tab-gallery" class="tab-btn px-5 py-1.5 rounded-full text-sm font-medium transition-colors bg-white shadow-sm text-[#C6593A]">Витрина</button>
+      <button onclick="switchTab('table')" id="tab-table" class="tab-btn px-5 py-1.5 rounded-full text-sm font-medium transition-colors text-[#5e5852] hover:text-[#23201D]">Таблица (Склад)</button>
+      <button onclick="switchTab('sales')" id="tab-sales" class="tab-btn px-5 py-1.5 rounded-full text-sm font-medium transition-colors text-[#5e5852] hover:text-[#23201D]">Журнал продаж</button>
+    </div>
+
+    <!-- Статистика (Виджеты) -->
+    <div class="flex gap-4">
+      <div class="flex items-center gap-2 bg-green-50 border border-green-100 px-3 py-1.5 rounded-lg">
+        <div class="w-2 h-2 rounded-full bg-green-500"></div>
+        <span class="text-xs font-medium text-green-800">В наличии: <strong id="stat-avail">0</strong></span>
+      </div>
+      <div class="flex items-center gap-2 bg-yellow-50 border border-yellow-100 px-3 py-1.5 rounded-lg">
+        <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+        <span class="text-xs font-medium text-yellow-800">Бронь: <strong id="stat-book">0</strong></span>
+      </div>
+      <div class="flex items-center gap-2 bg-[#FAF7F2] border border-[#E8E1D7] px-3 py-1.5 rounded-lg">
+        <i data-lucide="banknote" class="w-4 h-4 text-[#C6593A]"></i>
+        <span class="text-xs font-medium text-[#23201D]">Сумма на витрине: <strong id="stat-total-value">0</strong> ₽</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-6 py-4 flex-shrink-0 flex gap-3 flex-wrap items-center" id="filters-panel">
+    
+    <!-- Поиск -->
+    <div class="relative flex-grow max-w-md">
+      <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+      <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Поиск по названию, артикулу, автору..." 
+             class="w-full pl-10 pr-4 py-2 bg-white border border-[#E8E1D7] rounded-full text-sm focus:outline-none focus:border-[#C6593A] focus:ring-1 focus:ring-[#C6593A] transition-all">
+    </div>
+
+    <!-- Фильтр: Автор -->
+    <div class="relative">
+      <select id="filter-author" onchange="applyFilters()" class="appearance-none bg-white border border-[#E8E1D7] rounded-full pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-[#C6593A]">
+        <option value="all">Все мастера</option>
+        <!-- Опции заполняются динамически -->
+      </select>
+      <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+    </div>
+
+    <!-- Фильтр: Категория -->
+    <div class="relative">
+      <select id="filter-category" onchange="applyFilters()" class="appearance-none bg-white border border-[#E8E1D7] rounded-full pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-[#C6593A]">
+        <option value="all">Все категории</option>
+        <option value="Чашки и кружки">Чашки и кружки</option>
+        <option value="Тарелки и блюда">Тарелки и блюда</option>
+        <option value="Миски и пиалы">Миски и пиалы</option>
+        <option value="Вазы">Вазы</option>
+        <option value="Интерьер и декор">Интерьер и декор</option>
+        <option value="Скульптура">Скульптура</option>
+        <option value="Украшения">Украшения</option>
+        <option value="Прочее">Прочее</option>
+      </select>
+      <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+    </div>
+
+    <!-- Фильтр: Статус (для витрины/таблицы) -->
+    <div class="relative" id="status-filter-container">
+      <select id="filter-status" onchange="applyFilters()" class="appearance-none bg-white border border-[#E8E1D7] rounded-full pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-[#C6593A]">
+        <option value="active">Только активные (Наличие + Бронь)</option>
+        <option value="avail">В наличии</option>
+        <option value="book">Бронь</option>
+        <option value="all">Показывать проданные тоже</option>
+      </select>
+      <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+    </div>
+
+    <!-- Сортировка -->
+    <div class="relative ml-auto">
+      <select id="filter-sort" onchange="applyFilters()" class="appearance-none bg-white border border-[#E8E1D7] rounded-full pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-[#C6593A]">
+        <option value="newest">Сначала новые</option>
+        <option value="oldest">Сначала старые</option>
+        <option value="price-asc">Сначала дешевле</option>
+        <option value="price-desc">Сначала дороже</option>
+      </select>
+      <i data-lucide="arrow-up-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+    </div>
+  </div>
+
+  <main class="flex-grow overflow-y-auto px-6 pb-20 pt-2" id="main-content-area">
+    
+    <!-- ВКЛАДКА 1: ВИТРИНА (ГАЛЕРЕЯ) -->
+    <div id="view-gallery" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      <!-- Карточки генерируются JS -->
+    </div>
+
+    <!-- ВКЛАДКА 2: ТАБЛИЦА (СКЛАД) -->
+    <div id="view-table" class="hidden">
+      <!-- Действия над выбранными (массовые) -->
+      <div class="mb-4 flex gap-2" id="bulk-actions" style="display: none;">
+        <span class="text-sm self-center mr-2 text-[#5e5852]">Выбрано: <strong id="selected-count">0</strong></span>
+        <button onclick="bulkGenerateTags()" class="bg-gray-800 text-white px-3 py-1.5 rounded text-sm hover:bg-gray-700 flex items-center gap-1"><i data-lucide="printer" class="w-4 h-4"></i> Печать ценников</button>
+        <button onclick="bulkChangeStatus('Бронь')" class="bg-yellow-500 text-white px-3 py-1.5 rounded text-sm hover:bg-yellow-600 flex items-center gap-1">В бронь</button>
+      </div>
+
+      <div class="bg-white border border-[#E8E1D7] rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm whitespace-nowrap">
+            <thead class="bg-[#FAF7F2] text-[#5e5852] font-medium border-b border-[#E8E1D7]">
+              <tr>
+                <th class="p-3 w-10 text-center"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" class="rounded border-gray-300 text-[#C6593A] focus:ring-[#C6593A]"></th>
+                <th class="p-3 w-16">Фото</th>
+                <th class="p-3">Артикул / Полка</th>
+                <th class="p-3">Название и Автор</th>
+                <th class="p-3">Категория</th>
+                <th class="p-3 text-right">Цена</th>
+                <th class="p-3 text-center">Статус</th>
+                <th class="p-3 text-right">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="table-tbody" class="divide-y divide-[#E8E1D7]">
+              <!-- Строки генерируются JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ВКЛАДКА 3: ЖУРНАЛ ПРОДАЖ -->
+    <div id="view-sales" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white border border-[#E8E1D7] p-4 rounded-xl shadow-sm">
+          <div class="text-sm text-[#5e5852] mb-1">Всего продано работ</div>
+          <div class="text-2xl font-serif font-bold text-[#23201D]" id="sales-count">0</div>
+        </div>
+        <div class="bg-white border border-[#E8E1D7] p-4 rounded-xl shadow-sm">
+          <div class="text-sm text-[#5e5852] mb-1">Общая выручка</div>
+          <div class="text-2xl font-serif font-bold text-green-700"><span id="sales-total">0</span> ₽</div>
+        </div>
+        <div class="bg-white border border-[#E8E1D7] p-4 rounded-xl shadow-sm">
+          <div class="text-sm text-[#5e5852] mb-1">К выплате авторам</div>
+          <div class="text-2xl font-serif font-bold text-orange-600"><span id="sales-authors">0</span> ₽</div>
+        </div>
+        <div class="bg-white border border-[#E8E1D7] p-4 rounded-xl shadow-sm">
+          <div class="text-sm text-[#5e5852] mb-1">Доля студии (комиссия)</div>
+          <div class="text-2xl font-serif font-bold text-[#C6593A]"><span id="sales-studio">0</span> ₽</div>
+        </div>
+      </div>
+
+      <div class="bg-white border border-[#E8E1D7] rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm whitespace-nowrap">
+            <thead class="bg-[#FAF7F2] text-[#5e5852] font-medium border-b border-[#E8E1D7]">
+              <tr>
+                <th class="p-3">Дата продажи</th>
+                <th class="p-3">Артикул / Название</th>
+                <th class="p-3">Автор</th>
+                <th class="p-3 text-right">Сумма чека</th>
+                <th class="p-3">Оплата</th>
+                <th class="p-3">Доля мастера</th>
+                <th class="p-3">Покупатель (инфо)</th>
+                <th class="p-3 text-right">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="sales-tbody" class="divide-y divide-[#E8E1D7]">
+              <!-- Журнал продаж генерируется JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Пустое состояние -->
+    <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center">
+      <i data-lucide="package-open" class="w-16 h-16 text-gray-300 mb-4"></i>
+      <h3 class="font-serif text-xl font-bold text-[#23201D] mb-2">Ничего не найдено</h3>
+      <p class="text-[#5e5852]">Попробуйте изменить параметры фильтрации или поиска.</p>
+    </div>
+
+  </main>
+
+  <div id="print-area" class="hidden">
+    <!-- Сюда вставляются ценники для печати -->
+  </div>
+
+  <div id="itemModal" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col fade-in">
+      
+      <div class="flex items-center justify-between p-5 border-b border-[#E8E1D7]">
+        <h2 class="font-serif text-2xl font-bold text-[#23201D]" id="itemModalTitle">Добавить работу</h2>
+        <button onclick="closeItemModal()" class="text-gray-400 hover:text-gray-700 transition-colors">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      
+      <div class="overflow-y-auto p-6 flex-grow">
+        <form id="itemForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <input type="hidden" id="form-id">
+          
+          <!-- Левая колонка -->
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-[#5e5852] mb-1">Название изделия *</label>
+              <input type="text" id="form-title" required class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] focus:ring-1 focus:ring-[#C6593A] outline-none">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-[#5e5852] mb-1">Артикул</label>
+                <input type="text" id="form-article" placeholder="BSK-001" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] focus:ring-1 focus:ring-[#C6593A] outline-none bg-gray-50">
+                <div class="text-[10px] text-gray-400 mt-1">Оставьте пустым для авто-генерации</div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-[#5e5852] mb-1">Полка / Место</label>
+                <input type="text" id="form-location" placeholder="Витр. 1, полка 2" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-[#5e5852] mb-1">Мастер (Автор) *</label>
+              <input type="text" id="form-author" list="authors-list" required class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+              <datalist id="authors-list">
+                <option value="Ира Миронова">
+                <option value="Александра Косых">
+                <option value="Татьяна Соломатина">
+                <option value="Алтынай Лютина">
+                <option value="Карина Драчева">
+                <option value="Полина Кадкина">
+                <option value="Ксения Павлова-Васильева">
+                <option value="Ксения Фурманова">
+                <option value="Маша Лурье">
+              </datalist>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-[#5e5852] mb-1">Категория</label>
+              <select id="form-category" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+                <option value="Чашки и кружки">Чашки и кружки</option>
+                <option value="Тарелки и блюда">Тарелки и блюда</option>
+                <option value="Миски и пиалы">Миски и пиалы</option>
+                <option value="Вазы">Вазы</option>
+                <option value="Интерьер и декор">Интерьер и декор</option>
+                <option value="Скульптура">Скульптура</option>
+                <option value="Украшения">Украшения</option>
+                <option value="Прочее">Прочее</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-[#5e5852] mb-1">Цена продажи (₽) *</label>
+                <input type="number" id="form-price" min="0" required class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-[#5e5852] mb-1">Комиссия студии (%)</label>
+                <input type="number" id="form-commission" value="35" min="0" max="100" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none bg-orange-50">
+              </div>
+            </div>
+          </div>
+
+          <!-- Правая колонка -->
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-[#5e5852] mb-1">Фотография</label>
+              <div class="border-2 border-dashed border-[#E8E1D7] rounded-xl p-4 text-center hover:border-[#C6593A] transition-colors relative" id="photo-upload-zone">
+                
+                <!-- Прячем input file поверх для простого клика -->
+                <input type="file" id="form-photo-file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handlePhotoUpload(this)">
+                
+                <div id="photo-preview-container" class="hidden mb-3 h-32 relative z-0">
+                  <img id="form-photo-preview" src="" class="h-full mx-auto object-contain rounded-lg">
+                  <button type="button" onclick="removePhoto(event)" class="absolute top-0 right-0 bg-white rounded-full p-1 shadow-md hover:bg-red-50 text-red-500 z-20 transform translate-x-2 -translate-y-2">
+                    <i data-lucide="x" class="w-3 h-3"></i>
+                  </button>
+                </div>
+                
+                <div id="photo-placeholder" class="z-0 relative pointer-events-none">
+                  <i data-lucide="camera" class="w-8 h-8 mx-auto text-gray-300 mb-2"></i>
+                  <p class="text-xs text-gray-500">Нажмите чтобы загрузить файл</p>
+                  <p class="text-[10px] text-gray-400 mt-1">Или вставьте ссылку ниже</p>
+                </div>
+              </div>
+              
+              <input type="url" id="form-photo-url" placeholder="Вставьте ссылку на фото из Google Формы/Диска или Яндекса" 
+                     class="w-full mt-2 border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none"
+                     onchange="handleUrlInput(this)">
+              <div class="text-[10px] text-gray-400 mt-1">Ссылки drive.google.com конвертируются автоматически</div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-[#5e5852] mb-1">Статус *</label>
+              <div class="flex gap-2">
+                <div class="flex-1 relative">
+                  <input type="radio" name="form-status" value="В наличии" id="st-avail" class="peer sr-only status-radio" checked>
+                  <label for="st-avail" class="status-avail flex items-center justify-center w-full py-2 border border-[#E8E1D7] rounded-lg cursor-pointer text-sm font-medium text-[#5e5852] transition-colors hover:bg-gray-50">В наличии</label>
+                </div>
+                <div class="flex-1 relative">
+                  <input type="radio" name="form-status" value="Бронь" id="st-book" class="peer sr-only status-radio">
+                  <label for="st-book" class="status-book flex items-center justify-center w-full py-2 border border-[#E8E1D7] rounded-lg cursor-pointer text-sm font-medium text-[#5e5852] transition-colors hover:bg-gray-50">Бронь</label>
+                </div>
+              </div>
+              <div class="mt-2 relative" id="status-sold-wrapper">
+                <input type="radio" name="form-status" value="Продано" id="st-sold" class="peer sr-only status-radio">
+                <label for="st-sold" class="status-sold flex items-center justify-center w-full py-2 border border-[#E8E1D7] rounded-lg cursor-pointer text-sm font-medium text-[#5e5852] transition-colors hover:bg-gray-50">Отметить как ПРОДАНО (без чека)</label>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-[#5e5852] mb-1">Размеры / Объем</label>
+                <input type="text" id="form-dimensions" placeholder="напр. 250 мл" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-[#5e5852] mb-1">Материалы</label>
+                <input type="text" id="form-materials" placeholder="Полуфарфор, ангобы" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-[#5e5852] mb-1">Описание / Заметки</label>
+              <textarea id="form-notes" rows="2" class="w-full border border-[#E8E1D7] rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none resize-none"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="p-5 border-t border-[#E8E1D7] bg-[#FAF7F2] rounded-b-2xl flex justify-end gap-3">
+        <button onclick="closeItemModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-[#5e5852] hover:bg-gray-100 transition-colors">Отмена</button>
+        <button onclick="saveItem()" class="px-5 py-2 bg-[#C6593A] hover:bg-[#b54a2e] text-white rounded-lg text-sm font-medium transition-colors shadow-sm">Сохранить карточку</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sellModal" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col fade-in overflow-hidden">
+      <div class="bg-[#23201D] text-white p-5 flex items-center justify-between">
+        <h2 class="font-serif text-xl font-bold flex items-center gap-2"><i data-lucide="shopping-bag" class="w-5 h-5"></i> Оформление продажи</h2>
+        <button onclick="closeSellModal()" class="text-gray-400 hover:text-white transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <input type="hidden" id="sell-id">
+        
+        <div class="flex gap-4 mb-6 pb-6 border-b border-gray-100">
+          <img id="sell-img" src="" class="w-16 h-16 rounded-lg object-cover bg-gray-100 border border-gray-200">
+          <div>
+            <h3 id="sell-title" class="font-medium text-[#23201D] leading-tight">Название</h3>
+            <p id="sell-author" class="text-sm text-[#5e5852]">Автор</p>
+            <p class="font-serif font-bold text-lg text-[#C6593A] mt-1" id="sell-price-display">0 ₽</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-[#5e5852] mb-2">Фактическая сумма продажи (₽)</label>
+            <input type="number" id="sell-price" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-lg font-medium focus:border-[#C6593A] outline-none">
+            <p class="text-xs text-gray-400 mt-1">Можно изменить, если была скидка.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-[#5e5852] mb-2">Способ оплаты</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="cursor-pointer">
+                <input type="radio" name="sell-method" value="Терминал (Карта)" class="peer sr-only" checked>
+                <div class="text-center py-2 border border-gray-200 rounded-lg text-sm peer-checked:bg-[#C6593A] peer-checked:text-white peer-checked:border-[#C6593A] transition-colors">Терминал</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="sell-method" value="СБП / Перевод" class="peer sr-only">
+                <div class="text-center py-2 border border-gray-200 rounded-lg text-sm peer-checked:bg-[#C6593A] peer-checked:text-white peer-checked:border-[#C6593A] transition-colors">СБП</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="sell-method" value="Наличные" class="peer sr-only">
+                <div class="text-center py-2 border border-gray-200 rounded-lg text-sm peer-checked:bg-[#C6593A] peer-checked:text-white peer-checked:border-[#C6593A] transition-colors">Наличные</div>
+              </label>
+            </div>
+          </div>
+
+          <div>
+             <label class="block text-xs font-medium text-[#5e5852] mb-1">Покупатель / Контакты (необязательно)</label>
+             <input type="text" id="sell-buyer" placeholder="Имя, телефон, ник в TG" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-[#C6593A] outline-none">
+          </div>
+        </div>
+      </div>
+
+      <div class="p-5 bg-gray-50 border-t border-gray-100 flex gap-3">
+        <button onclick="closeSellModal()" class="flex-1 py-3 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">Отмена</button>
+        <button onclick="confirmSale()" class="flex-1 py-3 bg-[#23201D] hover:bg-black text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+          Пробить <i data-lucide="check-circle" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="syncModal" class="fixed inset-0 modal-backdrop z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col fade-in">
+      <div class="p-5 border-b border-[#E8E1D7] flex justify-between items-center bg-[#FAF7F2] rounded-t-2xl">
+        <h2 class="font-serif text-xl font-bold text-[#23201D] flex items-center gap-2"><i data-lucide="file-spreadsheet" class="w-5 h-5 text-green-600"></i> Интеграция с Google Формой</h2>
+        <button onclick="closeSyncModal()" class="text-gray-400 hover:text-gray-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <div class="p-6">
+        <div class="mb-4 text-sm text-[#5e5852]">
+          <p class="mb-2">Приложение настроено на чтение вашей таблицы:</p>
+          <a href="https://docs.google.com/spreadsheets/d/1v5Tzr06Vf4FmvPHTNB_0Vo16nco9FXLHrC3r_owE2dw/edit" target="_blank" class="text-[#C6593A] font-medium hover:underline block mb-2 break-all">1v5Tzr06Vf4FmvPHTNB_0Vo16nco9FXLHrC3r_owE2dw</a>
+          
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
+            <h4 class="font-medium text-yellow-800 flex items-center gap-1 mb-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Важно для работы:</h4>
+            <ul class="list-disc pl-4 text-xs text-yellow-800 space-y-1">
+              <li>Убедитесь, что в настройках доступа таблицы (кнопка "Поделиться") выбран доступ <strong>"Все, у кого есть ссылка"</strong> с правами <strong>"Читатель"</strong>.</li>
+              <li>При импорте приложение сопоставляет изделия. Статусы "Продано", которые вы ставили тут, <strong>не удалятся</strong>.</li>
+            </ul>
+          </div>
+        </div>
+        
+        <button onclick="importFromGoogleSheet()" id="syncSheetBtn" class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 mt-4">
+          <i data-lucide="download" class="w-4 h-4" id="syncSpinnerIcon"></i> Загрузить новые ответы из Таблицы
+        </button>
+        
+        <div class="mt-6 border-t border-gray-200 pt-4">
+           <p class="text-xs text-gray-500 mb-2">Для выгрузки текущей базы (включая продажи) из этого приложения в Excel на свой компьютер, нажмите кнопку ниже:</p>
+           <button onclick="exportToCSV()" class="w-full py-2 border border-gray-300 hover:bg-gray-50 text-[#23201D] rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+             <i data-lucide="file-down" class="w-4 h-4"></i> Скачать базу (.csv)
+           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+
+  <script>
+    // --- Конфигурация ---
+    const GOOGLE_SHEET_ID = '1v5Tzr06Vf4FmvPHTNB_0Vo16nco9FXLHrC3r_owE2dw'; 
+    const FALLBACK_IMAGE = 'https://placehold.co/400x400/FAF7F2/C6593A?text=Нет+фото';
+    
+    // --- Состояние приложения ---
+    let works = [];
+    let currentTab = 'gallery';
+    let filterParams = { search: '', author: 'all', category: 'all', status: 'active', sort: 'newest' };
+
+    // Демо-данные для первого запуска, если localStorage пуст
+    const INITIAL_WORKS = [
+      { id: '1', article: 'BSK-001', title: 'Кружка "Лес"', author: 'Ира Миронова', category: 'Чашки и кружки', price: 1500, commission: 35, location: 'Полка 1', status: 'В наличии', materials: 'Каменная масса, глазурь', dimensions: '300 мл', notes: 'Ручная лепка', photo: '', dateAdded: new Date().toISOString().split('T')[0], soldInfo: null },
+      { id: '2', article: 'BSK-002', title: 'Тарелка "Море"', author: 'Александра Косых', category: 'Тарелки и блюда', price: 2200, commission: 35, location: 'Витрина 2', status: 'Бронь', materials: 'Фарфор, подглазурная роспись', dimensions: 'D 22 см', notes: 'Бронь для Марии (ТГ: @mari)', photo: '', dateAdded: new Date(Date.now() - 86400000).toISOString().split('T')[0], soldInfo: null },
+    ];
+
+    // --- Инициализация ---
+    window.onload = () => {
+      initApp();
+    };
+
+    function initApp() {
+      const saved = localStorage.getItem('biskuit_showroom_works');
+      if (saved) {
+        try {
+          works = JSON.parse(saved);
+        } catch (e) {
+          works = [...INITIAL_WORKS];
+        }
+      } else {
+        works = [...INITIAL_WORKS];
+        saveWorks();
+      }
+
+      populateMasterFilter();
+      renderAll();
+      lucide.createIcons();
+      
+      // Авто-синхронизация при старте
+      autoSyncFromSheet(true); 
+    }
+
+    function saveWorks() {
+      localStorage.setItem('biskuit_showroom_works', JSON.stringify(works));
+    }
+
+    // --- Вспомогательные функции ---
+    function generateId() { return Math.random().toString(36).substr(2, 9) + Date.now().toString(36); }
+    function generateArticle() {
+      const bskWorks = works.filter(w => w.article && w.article.startsWith('BSK-'));
+      if (bskWorks.length === 0) return 'BSK-100';
+      const nums = bskWorks.map(w => parseInt(w.article.replace('BSK-', ''))).filter(n => !isNaN(n));
+      const max = nums.length > 0 ? Math.max(...nums) : 99;
+      return `BSK-${max + 1}`;
+    }
+    
+    // Конвертация ссылок Google Drive для показа как картинок
+    function processPhotoUrl(url) {
+      if (!url) return '';
+      
+      // Если в ячейке несколько ссылок через запятую, берем только первую
+      const firstUrl = url.split(',')[0].trim();
+      
+      // Если это Google Form / Drive ссылка вида /view, /open?id=, /file/d/
+      if (firstUrl.includes('drive.google.com')) {
+        let fileId = '';
+        const idMatch = firstUrl.match(/id=([^&]+)/);
+        const dMatch = firstUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        
+        if (idMatch) fileId = idMatch[1];
+        else if (dMatch) fileId = dMatch[1];
+        
+        if (fileId) {
+           // Используем специальный эндпоинт для генерации превью картинки (thumbnail) 
+           // Это работает надежнее, чем прямой экспорт, когда файлов много
+           return `https://drive.google.com/uc?export=view&id=${fileId}`;
+        }
+      }
+      return firstUrl;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-green-100 border-green-500 text-green-800',
+        error: 'bg-red-100 border-red-500 text-red-800',
+        info: 'bg-white border-[#C6593A] text-[#23201D] shadow-lg'
+      };
+      
+      toast.className = `toast-enter border-l-4 p-4 rounded shadow-md flex items-center gap-3 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <span class="font-medium text-sm">${message}</span>
+        <button onclick="this.parentElement.remove()" class="ml-auto text-gray-500 hover:text-black"><i data-lucide="x" class="w-4 h-4"></i></button>
+      `;
+      
+      container.appendChild(toast);
+      lucide.createIcons({root: toast});
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // --- Навигация и фильтрация ---
+    function switchTab(tab) {
+      currentTab = tab;
+      
+      // UI Вкладок
+      ['gallery', 'table', 'sales'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const view = document.getElementById(`view-${t}`);
+        if (t === tab) {
+          btn.classList.add('bg-white', 'shadow-sm', 'text-[#C6593A]');
+          btn.classList.remove('text-[#5e5852]', 'hover:text-[#23201D]');
+          view.classList.remove('hidden');
+        } else {
+          btn.classList.remove('bg-white', 'shadow-sm', 'text-[#C6593A]');
+          btn.classList.add('text-[#5e5852]', 'hover:text-[#23201D]');
+          view.classList.add('hidden');
+        }
+      });
+
+      // Показ/скрытие панели фильтров
+      const filtersPanel = document.getElementById('filters-panel');
+      if (tab === 'sales') {
+        filtersPanel.style.display = 'none';
+      } else {
+        filtersPanel.style.display = 'flex';
+        // В таблице фильтр по статусу показывает все опции, в галерее тоже
+      }
+
+      applyFilters();
+    }
+
+    function populateMasterFilter() {
+      const select = document.getElementById('filter-author');
+      const currentVal = select.value;
+      const authors = [...new Set(works.map(w => w.author).filter(Boolean))].sort();
+      
+      let html = '<option value="all">Все мастера</option>';
+      authors.forEach(a => { html += `<option value="${a}">${a}</option>`; });
+      select.innerHTML = html;
+      select.value = currentVal;
+    }
+
+    function applyFilters() {
+      filterParams.search = document.getElementById('searchInput').value.toLowerCase();
+      filterParams.author = document.getElementById('filter-author').value;
+      filterParams.category = document.getElementById('filter-category').value;
+      filterParams.status = document.getElementById('filter-status').value;
+      filterParams.sort = document.getElementById('filter-sort').value;
+      renderAll();
+    }
+
+    function getFilteredWorks() {
+      let filtered = works.filter(w => {
+        // Поиск
+        const searchMatch = !filterParams.search || 
+          (w.title && w.title.toLowerCase().includes(filterParams.search)) || 
+          (w.article && w.article.toLowerCase().includes(filterParams.search)) ||
+          (w.author && w.author.toLowerCase().includes(filterParams.search));
+        
+        // Мастер и Категория
+        const authorMatch = filterParams.author === 'all' || w.author === filterParams.author;
+        const categoryMatch = filterParams.category === 'all' || w.category === filterParams.category;
+        
+        // Статус
+        let statusMatch = true;
+        if (filterParams.status === 'active') {
+          statusMatch = w.status === 'В наличии' || w.status === 'Бронь';
+        } else if (filterParams.status === 'avail') {
+          statusMatch = w.status === 'В наличии';
+        } else if (filterParams.status === 'book') {
+          statusMatch = w.status === 'Бронь';
+        } else if (filterParams.status === 'sold') {
+          statusMatch = w.status === 'Продано';
+        } // 'all' пропускает все
+
+        // Журнал продаж работает только с проданными
+        if (currentTab === 'sales') return w.status === 'Продано';
+
+        return searchMatch && authorMatch && categoryMatch && statusMatch;
+      });
+
+      // Сортировка
+      filtered.sort((a, b) => {
+        if (filterParams.sort === 'newest') return new Date(b.dateAdded) - new Date(a.dateAdded);
+        if (filterParams.sort === 'oldest') return new Date(a.dateAdded) - new Date(b.dateAdded);
+        if (filterParams.sort === 'price-asc') return a.price - b.price;
+        if (filterParams.sort === 'price-desc') return b.price - a.price;
+        return 0;
+      });
+
+      return filtered;
+    }
+
+
+    function renderAll() {
+      updateStats();
+      const filtered = getFilteredWorks();
+      const emptyState = document.getElementById('empty-state');
+      
+      if (currentTab !== 'sales') {
+        if (filtered.length === 0) {
+          emptyState.classList.remove('hidden');
+          document.getElementById('view-gallery').innerHTML = '';
+          document.getElementById('table-tbody').innerHTML = '';
+        } else {
+          emptyState.classList.add('hidden');
+          if (currentTab === 'gallery') renderGallery(filtered);
+          if (currentTab === 'table') renderTable(filtered);
+        }
+      } else {
+        renderSales();
+      }
+      
+      lucide.createIcons();
+    }
+
+    function updateStats() {
+      const activeWorks = works.filter(w => w.status !== 'Продано');
+      
+      const countAvail = activeWorks.filter(w => w.status === 'В наличии').length;
+      const countBook = activeWorks.filter(w => w.status === 'Бронь').length;
+      const totalValue = activeWorks.reduce((sum, w) => sum + Number(w.price || 0), 0);
+
+      document.getElementById('stat-avail').textContent = countAvail;
+      document.getElementById('stat-book').textContent = countBook;
+      document.getElementById('stat-total-value').textContent = totalValue.toLocaleString('ru-RU');
+    }
+
+    function renderGallery(items) {
+      const container = document.getElementById('view-gallery');
+      container.innerHTML = items.map(item => {
+        
+        let statusBadge = '';
+        if (item.status === 'В наличии') statusBadge = '<span class="absolute top-2 left-2 bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-green-200 uppercase tracking-wide">В наличии</span>';
+        if (item.status === 'Бронь') statusBadge = '<span class="absolute top-2 left-2 bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-yellow-200 uppercase tracking-wide">Бронь</span>';
+        if (item.status === 'Продано') statusBadge = '<span class="absolute top-2 left-2 bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-gray-200 uppercase tracking-wide">Продано</span>';
+
+        const imgSrc = item.photo ? processPhotoUrl(item.photo) : FALLBACK_IMAGE;
+
+        let actions = '';
+        if (item.status !== 'Продано') {
+          actions = `
+            <div class="flex gap-2 mt-4 pt-3 border-t border-[#E8E1D7]">
+              <button onclick="openSellModal('${item.id}')" class="flex-1 bg-[#23201D] hover:bg-black text-white py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1 shadow-sm"><i data-lucide="shopping-bag" class="w-3 h-3"></i> Продать</button>
+              <button onclick="openItemModal('${item.id}')" class="px-2 py-1.5 bg-[#FAF7F2] border border-[#E8E1D7] hover:bg-[#E8E1D7] text-[#5e5852] rounded text-xs transition-colors" title="Редактировать"><i data-lucide="edit-2" class="w-3 h-3"></i></button>
+              <button onclick="printTag('${item.id}')" class="px-2 py-1.5 bg-[#FAF7F2] border border-[#E8E1D7] hover:bg-[#E8E1D7] text-[#5e5852] rounded text-xs transition-colors" title="Ценник"><i data-lucide="printer" class="w-3 h-3"></i></button>
+            </div>
+          `;
+        } else {
+           actions = `
+             <div class="mt-4 pt-3 border-t border-[#E8E1D7]">
+                <button onclick="openItemModal('${item.id}')" class="w-full px-2 py-1.5 bg-[#FAF7F2] border border-[#E8E1D7] hover:bg-[#E8E1D7] text-[#5e5852] rounded text-xs transition-colors flex items-center justify-center gap-1"><i data-lucide="edit-2" class="w-3 h-3"></i> Просмотр / Возврат</button>
+             </div>
+           `;
+        }
+
+        return `
+          <div class="bg-white rounded-xl overflow-hidden border border-[#E8E1D7] hover:shadow-lg transition-all group flex flex-col h-full fade-in">
+            <div class="relative h-48 bg-[#FAF7F2] overflow-hidden flex-shrink-0 border-b border-[#E8E1D7]">
+              <img src="${imgSrc}" onerror="this.src='${FALLBACK_IMAGE}'" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+              ${statusBadge}
+              <div class="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1">
+                <i data-lucide="layers" class="w-3 h-3"></i> ${item.location || 'Нет полки'}
+              </div>
+            </div>
+            <div class="p-4 flex flex-col flex-grow">
+              <div class="text-[10px] text-gray-400 font-medium mb-1">${item.article}</div>
+              <h3 class="font-serif font-bold text-lg text-[#23201D] leading-tight mb-1 line-clamp-2">${item.title}</h3>
+              <p class="text-sm text-[#C6593A] font-medium mb-2">${item.author}</p>
+              
+              <div class="mt-auto pt-2 flex items-end justify-between">
+                <div>
+                  <div class="text-xs text-[#5e5852]">${item.category}</div>
+                  <div class="font-serif font-bold text-xl text-[#23201D] mt-0.5">${item.price.toLocaleString('ru-RU')} ₽</div>
+                </div>
+              </div>
+              
+              ${actions}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTable(items) {
+      const tbody = document.getElementById('table-tbody');
+      tbody.innerHTML = items.map(item => {
+        const imgSrc = item.photo ? processPhotoUrl(item.photo) : FALLBACK_IMAGE;
+        
+        let statusClass = '';
+        if (item.status === 'В наличии') statusClass = 'text-green-600 bg-green-50 border-green-200';
+        else if (item.status === 'Бронь') statusClass = 'text-yellow-600 bg-yellow-50 border-yellow-200';
+        else statusClass = 'text-gray-500 bg-gray-50 border-gray-200';
+
+        return `
+          <tr class="hover:bg-gray-50 transition-colors group">
+            <td class="p-3 text-center border-b border-[#E8E1D7]">
+              <input type="checkbox" value="${item.id}" onchange="updateBulkActions()" class="row-checkbox rounded border-gray-300 text-[#C6593A] focus:ring-[#C6593A]">
+            </td>
+            <td class="p-3 border-b border-[#E8E1D7]">
+              <img src="${imgSrc}" onerror="this.src='${FALLBACK_IMAGE}'" class="w-10 h-10 rounded object-cover border border-[#E8E1D7]">
+            </td>
+            <td class="p-3 border-b border-[#E8E1D7]">
+              <div class="font-medium text-[#23201D]">${item.article}</div>
+              <div class="text-xs text-gray-500">${item.location}</div>
+            </td>
+            <td class="p-3 border-b border-[#E8E1D7]">
+              <div class="font-serif font-bold text-[#23201D]">${item.title}</div>
+              <div class="text-xs text-[#C6593A]">${item.author}</div>
+            </td>
+            <td class="p-3 border-b border-[#E8E1D7] text-[#5e5852]">${item.category}</td>
+            <td class="p-3 text-right font-medium text-[#23201D] border-b border-[#E8E1D7]">${item.price.toLocaleString('ru-RU')} ₽</td>
+            <td class="p-3 text-center border-b border-[#E8E1D7]">
+              <select onchange="quickStatusChange('${item.id}', this.value)" class="text-xs px-2 py-1 rounded border ${statusClass} outline-none cursor-pointer">
+                <option value="В наличии" ${item.status === 'В наличии' ? 'selected' : ''}>В наличии</option>
+                <option value="Бронь" ${item.status === 'Бронь' ? 'selected' : ''}>Бронь</option>
+                <option value="Продано" ${item.status === 'Продано' ? 'selected' : ''}>Продано</option>
+              </select>
+            </td>
+            <td class="p-3 text-right border-b border-[#E8E1D7]">
+              <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onclick="openItemModal('${item.id}')" class="p-1.5 text-gray-500 hover:text-[#C6593A] hover:bg-orange-50 rounded" title="Редактировать"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+                <button onclick="printTag('${item.id}')" class="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title="Ценник"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                ${item.status !== 'Продано' ? `<button onclick="openSellModal('${item.id}')" class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Продать"><i data-lucide="shopping-bag" class="w-4 h-4"></i></button>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderSales() {
+      const soldItems = works.filter(w => w.status === 'Продано' && w.soldInfo);
+      
+      // Сортировка по дате продажи (новые сверху)
+      soldItems.sort((a, b) => new Date(b.soldInfo.date) - new Date(a.soldInfo.date));
+
+      let totalRevenue = 0;
+      let totalAuthors = 0;
+      let totalStudio = 0;
+
+      const tbody = document.getElementById('sales-tbody');
+      
+      if(soldItems.length === 0) {
+         tbody.innerHTML = `<tr><td colspan="8" class="p-10 text-center text-gray-400">Журнал продаж пуст. Продайте что-нибудь на вкладке "Витрина".</td></tr>`;
+      } else {
+        tbody.innerHTML = soldItems.map(item => {
+          const info = item.soldInfo;
+          const actualPrice = info.actualPrice || item.price;
+          const commissionPercent = item.commission || 35;
+          const studioShare = actualPrice * (commissionPercent / 100);
+          const authorShare = actualPrice - studioShare;
+
+          totalRevenue += actualPrice;
+          totalAuthors += authorShare;
+          totalStudio += studioShare;
+
+          const dateObj = new Date(info.date);
+          const dateStr = dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+          let methodIcon = '<i data-lucide="credit-card" class="w-4 h-4 text-blue-500"></i>';
+          if (info.method.includes('СБП')) methodIcon = '<i data-lucide="smartphone" class="w-4 h-4 text-purple-500"></i>';
+          if (info.method.includes('Наличные')) methodIcon = '<i data-lucide="banknote" class="w-4 h-4 text-green-500"></i>';
+
+          return `
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="p-3 border-b border-[#E8E1D7] text-xs">${dateStr}</td>
+              <td class="p-3 border-b border-[#E8E1D7]">
+                <div class="text-[10px] text-gray-400">${item.article}</div>
+                <div class="font-serif font-bold text-[#23201D]">${item.title}</div>
+              </td>
+              <td class="p-3 border-b border-[#E8E1D7] text-sm text-[#C6593A]">${item.author}</td>
+              <td class="p-3 text-right font-medium text-[#23201D] border-b border-[#E8E1D7]">${actualPrice.toLocaleString('ru-RU')} ₽</td>
+              <td class="p-3 border-b border-[#E8E1D7]">
+                <div class="flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded w-max">
+                  ${methodIcon} ${info.method}
+                </div>
+              </td>
+              <td class="p-3 border-b border-[#E8E1D7]">
+                <div class="text-xs"><span class="text-gray-500">Мастеру:</span> <strong class="text-orange-600">${authorShare.toLocaleString('ru-RU')} ₽</strong></div>
+                <div class="text-[10px] text-gray-400">Студии: ${studioShare.toLocaleString('ru-RU')} ₽ (${commissionPercent}%)</div>
+              </td>
+              <td class="p-3 border-b border-[#E8E1D7] text-xs text-gray-600">${info.buyer || '—'}</td>
+              <td class="p-3 text-right border-b border-[#E8E1D7]">
+                <button onclick="returnItem('${item.id}')" class="text-xs text-red-500 hover:text-red-700 underline decoration-dotted">Возврат</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('sales-count').textContent = soldItems.length;
+      document.getElementById('sales-total').textContent = totalRevenue.toLocaleString('ru-RU');
+      document.getElementById('sales-authors').textContent = totalAuthors.toLocaleString('ru-RU');
+      document.getElementById('sales-studio').textContent = totalStudio.toLocaleString('ru-RU');
+    }
+
+
+    function toggleSelectAll(checkbox) {
+      const rows = document.querySelectorAll('.row-checkbox');
+      rows.forEach(r => r.checked = checkbox.checked);
+      updateBulkActions();
+    }
+
+    function updateBulkActions() {
+      const checked = document.querySelectorAll('.row-checkbox:checked');
+      const panel = document.getElementById('bulk-actions');
+      const count = document.getElementById('selected-count');
+      
+      if (checked.length > 0) {
+        panel.style.display = 'flex';
+        count.textContent = checked.length;
+      } else {
+        panel.style.display = 'none';
+      }
+    }
+
+    function getSelectedIds() {
+      return Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+    }
+
+    function bulkChangeStatus(newStatus) {
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+      works.forEach(w => { if (ids.includes(w.id) && w.status !== 'Продано') w.status = newStatus; });
+      saveWorks();
+      renderAll();
+      showToast(`Статус обновлен для ${ids.length} работ`, 'success');
+      document.getElementById('selectAllCheckbox').checked = false;
+      updateBulkActions();
+    }
+
+    function quickStatusChange(id, status) {
+      const item = works.find(w => w.id === id);
+      if (item) {
+        if (status === 'Продано') {
+           // Если через селект выбрали продано - открываем окно продажи для фиксации чека
+           openSellModal(id);
+           renderAll(); // Возвращаем select обратно до пробития
+           return;
+        }
+        item.status = status;
+        saveWorks();
+        renderAll();
+      }
+    }
+
+
+    function openAddModal() {
+      document.getElementById('itemForm').reset();
+      document.getElementById('form-id').value = '';
+      document.getElementById('itemModalTitle').textContent = 'Добавить работу';
+      document.getElementById('form-article').value = generateArticle();
+      
+      // Сброс фото
+      document.getElementById('photo-preview-container').classList.add('hidden');
+      document.getElementById('photo-placeholder').classList.remove('hidden');
+      document.getElementById('form-photo-preview').src = '';
+      document.getElementById('form-photo-url').dataset.base64 = '';
+      
+      document.getElementById('itemModal').classList.remove('hidden');
+    }
+
+    function openItemModal(id) {
+      const item = works.find(w => w.id === id);
+      if (!item) return;
+
+      document.getElementById('itemModalTitle').textContent = 'Редактировать работу';
+      document.getElementById('form-id').value = item.id;
+      document.getElementById('form-title').value = item.title;
+      document.getElementById('form-article').value = item.article;
+      document.getElementById('form-author').value = item.author;
+      document.getElementById('form-category').value = item.category;
+      document.getElementById('form-price').value = item.price;
+      document.getElementById('form-commission').value = item.commission || 35;
+      document.getElementById('form-location').value = item.location || '';
+      document.getElementById('form-materials').value = item.materials || '';
+      document.getElementById('form-dimensions').value = item.dimensions || '';
+      document.getElementById('form-notes').value = item.notes || '';
+      
+      // Статус
+      if(item.status === 'В наличии') document.getElementById('st-avail').checked = true;
+      else if(item.status === 'Бронь') document.getElementById('st-book').checked = true;
+      else if(item.status === 'Продано') document.getElementById('st-sold').checked = true;
+
+      // Фото
+      const photoUrlInput = document.getElementById('form-photo-url');
+      const previewCont = document.getElementById('photo-preview-container');
+      const placeholder = document.getElementById('photo-placeholder');
+      const previewImg = document.getElementById('form-photo-preview');
+
+      photoUrlInput.value = item.photo || '';
+      photoUrlInput.dataset.base64 = item.photo && item.photo.startsWith('data:image') ? item.photo : '';
+
+      if (item.photo) {
+        previewImg.src = processPhotoUrl(item.photo);
+        previewCont.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+      } else {
+        previewImg.src = '';
+        previewCont.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+      }
+
+      document.getElementById('itemModal').classList.remove('hidden');
+    }
+
+    function closeItemModal() {
+      document.getElementById('itemModal').classList.add('hidden');
+    }
+
+    function handlePhotoUpload(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const dataUrl = e.target.result;
+          document.getElementById('form-photo-url').dataset.base64 = dataUrl;
+          document.getElementById('form-photo-url').value = 'Файл загружен';
+          
+          document.getElementById('form-photo-preview').src = dataUrl;
+          document.getElementById('photo-preview-container').classList.remove('hidden');
+          document.getElementById('photo-placeholder').classList.add('hidden');
+        }
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    function handleUrlInput(input) {
+      const url = input.value.trim();
+      input.dataset.base64 = ''; // сбрасываем base64 если вставили урл
+      if (url) {
+        document.getElementById('form-photo-preview').src = processPhotoUrl(url);
+        document.getElementById('photo-preview-container').classList.remove('hidden');
+        document.getElementById('photo-placeholder').classList.add('hidden');
+      } else {
+         removePhoto(new Event('click'));
+      }
+    }
+
+    function removePhoto(e) {
+      e.stopPropagation();
+      document.getElementById('form-photo-file').value = '';
+      document.getElementById('form-photo-url').value = '';
+      document.getElementById('form-photo-url').dataset.base64 = '';
+      document.getElementById('form-photo-preview').src = '';
+      document.getElementById('photo-preview-container').classList.add('hidden');
+      document.getElementById('photo-placeholder').classList.remove('hidden');
+    }
+
+    function saveItem() {
+      const form = document.getElementById('itemForm');
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      const id = document.getElementById('form-id').value;
+      const urlInput = document.getElementById('form-photo-url');
+      const photoData = urlInput.dataset.base64 || (urlInput.value === 'Файл загружен' ? '' : urlInput.value.trim());
+      
+      let status = document.querySelector('input[name="form-status"]:checked').value;
+
+      const itemData = {
+        title: document.getElementById('form-title').value,
+        article: document.getElementById('form-article').value || generateArticle(),
+        author: document.getElementById('form-author').value,
+        category: document.getElementById('form-category').value,
+        price: Number(document.getElementById('form-price').value),
+        commission: Number(document.getElementById('form-commission').value) || 35,
+        location: document.getElementById('form-location').value,
+        materials: document.getElementById('form-materials').value,
+        dimensions: document.getElementById('form-dimensions').value,
+        notes: document.getElementById('form-notes').value,
+        photo: photoData,
+        status: status
+      };
+
+      if (id) {
+        const index = works.findIndex(w => w.id === id);
+        if (index > -1) {
+           // Если статус меняется на продано вручную через карточку - создаем фейковую продажу
+           if (status === 'Продано' && works[index].status !== 'Продано') {
+              itemData.soldInfo = {
+                 date: new Date().toISOString(),
+                 actualPrice: itemData.price,
+                 method: 'Наличные',
+                 buyer: 'Через редактирование'
+              };
+           }
+           works[index] = { ...works[index], ...itemData };
+           showToast('Изменения сохранены', 'success');
+        }
+      } else {
+        works.push({
+          id: generateId(),
+          dateAdded: new Date().toISOString().split('T')[0],
+          soldInfo: null,
+          ...itemData
+        });
+        showToast('Работа добавлена!', 'success');
+      }
+
+      saveWorks();
+      populateMasterFilter();
+      renderAll();
+      closeItemModal();
+    }
+
+
+    function openSellModal(id) {
+      const item = works.find(w => w.id === id);
+      if (!item) return;
+
+      document.getElementById('sell-id').value = item.id;
+      document.getElementById('sell-title').textContent = item.title;
+      document.getElementById('sell-author').textContent = item.author;
+      document.getElementById('sell-price-display').textContent = item.price.toLocaleString('ru-RU') + ' ₽';
+      document.getElementById('sell-price').value = item.price;
+      document.getElementById('sell-buyer').value = '';
+      document.getElementById('sell-img').src = item.photo ? processPhotoUrl(item.photo) : FALLBACK_IMAGE;
+
+      document.getElementById('sellModal').classList.remove('hidden');
+    }
+
+    function closeSellModal() {
+      document.getElementById('sellModal').classList.add('hidden');
+    }
+
+    function confirmSale() {
+      const id = document.getElementById('sell-id').value;
+      const actualPrice = Number(document.getElementById('sell-price').value);
+      const method = document.querySelector('input[name="sell-method"]:checked').value;
+      const buyer = document.getElementById('sell-buyer').value;
+
+      const item = works.find(w => w.id === id);
+      if (item) {
+        item.status = 'Продано';
+        item.soldInfo = {
+          date: new Date().toISOString(),
+          actualPrice: actualPrice,
+          method: method,
+          buyer: buyer
+        };
+        
+        saveWorks();
+        renderAll();
+        closeSellModal();
+        showToast('Продажа успешно зафиксирована!', 'success');
+      }
+    }
+
+    function returnItem(id) {
+      if(confirm('Оформить возврат этой работы? Статус изменится на "В наличии", продажа удалится из журнала.')) {
+         const item = works.find(w => w.id === id);
+         if (item) {
+           item.status = 'В наличии';
+           item.soldInfo = null;
+           saveWorks();
+           renderAll();
+           showToast('Оформлен возврат', 'info');
+         }
+      }
+    }
+
+
+    function bulkGenerateTags() {
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+      generateTagsHTML(ids);
+    }
+
+    function printTag(id) {
+      generateTagsHTML([id]);
+    }
+
+    function generateTagsHTML(ids) {
+      const printArea = document.getElementById('print-area');
+      printArea.innerHTML = '';
+      
+      const styles = `
+        <style>
+          .tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15mm; padding: 10mm; }
+          .tag { 
+            width: 55mm; height: 90mm; border: 1px dashed #ccc; padding: 6mm; 
+            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+            text-align: center; font-family: 'Manrope', sans-serif; page-break-inside: avoid;
+          }
+          .tag-logo { width: 12mm; height: 12mm; background: #C6593A; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Cormorant Garamond', serif; font-size: 18pt; font-weight: bold; margin-bottom: 2mm;}
+          .tag-title { font-family: 'Cormorant Garamond', serif; font-weight: bold; font-size: 14pt; margin-bottom: 1mm; line-height: 1.1; }
+          .tag-author { font-size: 9pt; color: #555; margin-bottom: 3mm; }
+          .tag-price { font-family: 'Cormorant Garamond', serif; font-weight: bold; font-size: 20pt; margin: 3mm 0; color: #23201D; }
+          .tag-article { font-size: 7pt; color: #888; font-family: monospace; }
+          .qr-box { margin-top: auto; padding-top: 3mm; }
+          .qr-box img { width: 25mm; height: 25mm; }
+          .tag-footer { font-size: 6pt; color: #aaa; margin-top: 2mm; }
+        </style>
+        <div class="tag-grid">
+      `;
+      
+      let html = styles;
+      
+      const qrcodeGenerators = [];
+
+      ids.forEach((id, index) => {
+        const item = works.find(w => w.id === id);
+        if (!item) return;
+        
+        const qrId = `qr-${id}-${index}`;
+        
+        html += `
+          <div class="tag">
+            <div class="tag-logo">Б</div>
+            <div>
+               <div class="tag-title">${item.title}</div>
+               <div class="tag-author">${item.author}</div>
+            </div>
+            <div class="tag-price">${item.price.toLocaleString('ru-RU')} ₽</div>
+            <div class="tag-article">${item.article}</div>
+            <div class="qr-box" id="${qrId}"></div>
+            <div class="tag-footer">biskuit.ru • Зверинская 13/5</div>
+          </div>
+        `;
+        
+        // Создаем QR для публичной витрины (предполагаем, что поиск по артикулу работает)
+        qrcodeGenerators.push(() => {
+           new QRCode(document.getElementById(qrId), {
+              text: `https://biskuit.ru/showroom_gallery?q=${item.article}`,
+              width: 100,
+              height: 100,
+              colorDark : "#23201D",
+              colorLight : "#ffffff",
+              correctLevel : QRCode.CorrectLevel.L
+           });
+        });
+      });
+      
+      html += '</div>';
+      printArea.innerHTML = html;
+      
+      // Запускаем генерацию QR кодов после добавления в DOM
+      setTimeout(() => {
+        qrcodeGenerators.forEach(gen => gen());
+        // Ждем отрисовки QR и вызываем печать
+        setTimeout(() => {
+          window.print();
+          // Очищаем область после печати (по событию afterprint или таймауту)
+          setTimeout(() => { printArea.innerHTML = ''; }, 1000);
+        }, 300);
+      }, 50);
+    }
+
+
+    function openSyncModal() {
+      document.getElementById('syncModal').classList.remove('hidden');
+    }
+    
+    function closeSyncModal() {
+      document.getElementById('syncModal').classList.add('hidden');
+    }
+
+    async function autoSyncFromSheet(isSilent = false) {
+      if(!isSilent) {
+          const btn = document.getElementById('syncSheetBtn');
+          const spinner = document.getElementById('syncSpinnerIcon');
+          if(btn) btn.disabled = true;
+          if(spinner) spinner.classList.add('animate-spin');
+      } else {
+         const mainIcon = document.getElementById('mainSyncIcon');
+         if(mainIcon) mainIcon.classList.add('animate-spin');
+      }
+
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv`;
+      
+      try {
+        const response = await fetch(csvUrl);
+        if (!response.ok) {
+           if(!isSilent) showToast('⚠️ Нет доступа к таблице. Проверьте права "Читатель" по ссылке.', 'error');
+           return;
+        }
+        const csvText = await response.text();
+        const parsedWorks = parseGoogleSheetCSV(csvText);
+
+        if (parsedWorks && parsedWorks.length > 0) {
+          // Умное слияние: сохраняем статусы продаж для уже загруженных работ
+          const localWorksMap = new Map(works.map(w => [w.article || w.title, w]));
+          
+          let addedCount = 0;
+          let updatedCount = 0;
+
+          const mergedWorks = parsedWorks.map(pw => {
+             const key = pw.article || pw.title;
+             if (localWorksMap.has(key)) {
+                const local = localWorksMap.get(key);
+                updatedCount++;
+                // Сохраняем локальные статусы, выплаты, ID и переопределенные локально поля, 
+                // если мы хотим приоритет таблицы - берем из pw, приоритет приложения - из local.
+                // Оставим гибрид: статус и продажи локальные, остальное из таблицы
+                return { ...pw, status: local.status, soldInfo: local.soldInfo, id: local.id, commission: local.commission };
+             }
+             addedCount++;
+             return pw;
+          });
+
+          // Добавляем те, что есть локально, но нет в таблице (например, созданные вручную в приложении)
+          const parsedKeys = new Set(parsedWorks.map(pw => pw.article || pw.title));
+          works.forEach(w => {
+             const key = w.article || w.title;
+             if (!parsedKeys.has(key)) {
+                mergedWorks.push(w);
+             }
+          });
+
+          // Сортируем чтобы новые были сверху
+          mergedWorks.sort((a,b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+          
+          works = mergedWorks;
+          saveWorks();
+          populateMasterFilter();
+          renderAll();
+          
+          if(!isSilent) showToast(`Синхронизировано! Добавлено новых: ${addedCount}, обновлено: ${updatedCount}.`, 'success');
+        }
+      } catch (err) {
+        console.warn('Ошибка авто-синхронизации:', err);
+        if(!isSilent) showToast('Ошибка при чтении таблицы. Проверьте консоль.', 'error');
+      } finally {
+         if(!isSilent) {
+             const btn = document.getElementById('syncSheetBtn');
+             const spinner = document.getElementById('syncSpinnerIcon');
+             if(btn) btn.disabled = false;
+             if(spinner) spinner.classList.remove('animate-spin');
+             closeSyncModal();
+         } else {
+             const mainIcon = document.getElementById('mainSyncIcon');
+             if(mainIcon) mainIcon.classList.remove('animate-spin');
+         }
+      }
+    }
+
+    async function importFromGoogleSheet() {
+       await autoSyncFromSheet(false);
+    }
+
+    // Парсер CSV, устойчивый к запятым внутри кавычек
+    function parseGoogleSheetCSV(text) {
+      const results = [];
+      let lines = [];
+      let currentLine = '';
+      let insideQuotes = false;
+
+      // Правильное разделение на строки с учетом переносов внутри кавычек
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"') insideQuotes = !insideQuotes;
+        if (char === '\n' && !insideQuotes) {
+          lines.push(currentLine);
+          currentLine = '';
+        } else {
+          currentLine += char;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+
+      if (lines.length < 2) return []; // Нет данных
+
+      // Парсинг строки CSV на колонки
+      function parseLine(line) {
+        const cols = [];
+        let curr = '';
+        let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          if (line[i] === '"') inQ = !inQ;
+          else if (line[i] === ',' && !inQ) { cols.push(curr); curr = ''; }
+          else curr += line[i];
+        }
+        cols.push(curr);
+        return cols;
+      }
+
+      const headers = parseLine(lines[0]).map(h => h.replace(/^"|"$/g, '').toLowerCase().trim());
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseLine(lines[i]).map(c => c.replace(/^"|"$/g, ''));
+        if (cols.length === 0 || cols.every(c => !c)) continue;
+
+        // Поиск индексов нужных колонок по заголовкам
+        let title = '', author = '', price = 0, photo = '', category = 'Чашки и кружки', article = '', location = '';
+        let materials = '', dimensions = '', notes = '', timestamp = new Date().toISOString().split('T')[0];
+
+        headers.forEach((h, idx) => {
+          const val = cols[idx] || '';
+          if (!val) return;
+          
+          if (h.includes('назван') || h.includes('работ') || h.includes('издели')) title = title || val;
+          if (h.includes('автор') || h.includes('мастер') || h.includes('фио') || h.includes('керамист') || h.includes('имя')) author = author || val;
+          if (h.includes('цен') || h.includes('стоимост') || h.includes('руб')) price = Number(val.replace(/[^\d]/g, '')) || price;
+          // Расширили поиск колонки с фото:
+          if (h.includes('фото') || h.includes('ссылк') || h.includes('диск') || h.includes('изображен') || h.includes('картинк') || h.includes('файл') || h.includes('сним')) photo = photo || val;
+          if (h.includes('категор') || h.includes('тип') || h.includes('вид')) category = val || category;
+          if (h.includes('артикул') || h.includes('номер')) article = val || article;
+          if (h.includes('полк') || h.includes('место') || h.includes('витрин') || h.includes('стеллаж')) location = val || location;
+          if (h.includes('материал') || h.includes('глин') || h.includes('масс')) materials = val || materials;
+          if (h.includes('размер') || h.includes('объем') || h.includes('габарит')) dimensions = val || dimensions;
+          if (h.includes('описани') || h.includes('комментар') || h.includes('заметк') || h.includes('доп')) notes = val || notes;
+          if (h.includes('отметка времени') || h.includes('timestamp')) {
+             // Пытаемся распарсить дату из формы (обычно dd.mm.yyyy HH:MM:SS)
+             const dMatch = val.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+             if(dMatch) timestamp = `${dMatch[3]}-${dMatch[2]}-${dMatch[1]}`;
+          }
+        });
+
+        // Фолбэки, если заголовки не распознались, берем по типичным индексам (Отметка, Название, Автор, Цена, Фото...)
+        if (!title && cols[1]) title = cols[1];
+        if (!author && cols[2]) author = cols[2];
+        if (!price && cols[3]) price = Number((cols[3] || '').replace(/[^\d]/g, '')) || 1500;
+        if (!photo && cols[4]) photo = cols[4];
+
+        // Генерируем временный артикул на основе строки, если его нет
+        const generatedArticle = article || `T-${timestamp.replace(/-/g,'').slice(2)}-${i}`;
+
+        results.push({
+          id: 'gs-' + i + '-' + Date.now(),
+          article: generatedArticle,
+          title: title || `Изделие из формы #${i}`,
+          author: author || 'Керамист Бисквита',
+          category: category || 'Чашки и кружки',
+          price: price || 1500,
+          commission: 35, // Базовая комиссия 35%
+          location: location || 'Витрина',
+          status: 'В наличии', // По умолчанию из формы все в наличии
+          materials: materials || '',
+          dimensions: dimensions || '',
+          notes: notes || '',
+          photo: photo,
+          dateAdded: timestamp,
+          soldInfo: null
+        });
+      }
+
+      return results;
+    }
+
+    function exportToCSV() {
+      const headers = ['Артикул', 'Название', 'Мастер', 'Категория', 'Цена (руб)', 'Статус', 'Полка', 'Материалы', 'Размеры', 'Заметки', 'Фото', 'Дата добавления', 'Дата продажи', 'Сумма продажи', 'Метод оплаты', 'Покупатель'];
+      
+      const rows = works.map(w => {
+        return [
+          w.article, w.title, w.author, w.category, w.price, w.status, w.location, w.materials, w.dimensions, w.notes, w.photo,
+          w.dateAdded,
+          w.soldInfo ? new Date(w.soldInfo.date).toLocaleDateString('ru-RU') : '',
+          w.soldInfo ? w.soldInfo.actualPrice : '',
+          w.soldInfo ? w.soldInfo.method : '',
+          w.soldInfo ? w.soldInfo.buyer : ''
+        ].map(cell => {
+          let str = String(cell || '');
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            str = `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        }).join(',');
+      });
+
+      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers.join(',') + '\n' + rows.join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `biskuit_showroom_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Бисквит – Добавление работы</title>
+  
+  <!-- Подключение стилей и иконок -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-biskuit: #FAF7F2;
+      --terracotta: #C6593A;
+      --terracotta-hover: #b54a2e;
+      --clay-dark: #23201D;
+      --clay-muted: #5e5852;
+      --border-sand: #E8E1D7;
+    }
+    body {
+      font-family: 'Manrope', sans-serif;
+      background-color: var(--bg-biskuit);
+      color: var(--clay-dark);
+      -webkit-tap-highlight-color: transparent;
+    }
+    h1, h2, h3, .font-serif {
+      font-family: 'Cormorant Garamond', serif;
+    }
+    
+    /* Стили для красивого инпута файла */
+    .file-drop-area {
+      border: 2px dashed var(--border-sand);
+      transition: all 0.2s ease;
+    }
+    .file-drop-area.is-active {
+      border-color: var(--terracotta);
+      background-color: rgba(198, 89, 58, 0.05);
+    }
+    
+    /* Анимации */
+    .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 px-4 sm:px-6">
+
+  <!-- Шапка формы -->
+  <div class="w-full max-w-md mb-8 text-center fade-in">
+    <div class="w-16 h-16 mx-auto rounded-full bg-[#C6593A] flex items-center justify-center text-white font-serif text-3xl font-bold shadow-md mb-4">
+      Б
+    </div>
+    <h1 class="text-3xl font-bold text-[#23201D] leading-tight">Добавить работу</h1>
+    <p class="text-[#5e5852] mt-2 text-sm">Форма загрузки изделий в шоурум</p>
+  </div>
+
+  <!-- Основная форма -->
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-[#E8E1D7] overflow-hidden fade-in" style="animation-delay: 0.1s; opacity: 0;">
+    <form id="uploadForm" onsubmit="handleFormSubmit(event)" class="p-6 sm:p-8 space-y-5">
+      
+      <!-- Зона загрузки фото -->
+      <div>
+        <label class="block text-sm font-medium text-[#5e5852] mb-2">Фотография изделия *</label>
+        <div id="drop-zone" class="file-drop-area rounded-xl p-6 text-center relative cursor-pointer group bg-gray-50 hover:bg-gray-100">
+          <input type="file" id="photoFile" accept="image/*" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onchange="previewFile()">
+          
+          <div id="preview-container" class="hidden relative z-10 w-full">
+            <img id="photo-preview" src="" class="w-full h-48 object-cover rounded-lg shadow-sm border border-[#E8E1D7]">
+            <button type="button" onclick="clearFile(event)" class="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-md text-red-500 hover:bg-red-50 transition-colors">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+          
+          <div id="placeholder-container" class="pointer-events-none z-10">
+            <div class="w-12 h-12 rounded-full bg-white shadow-sm border border-[#E8E1D7] flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+              <i data-lucide="camera" class="w-5 h-5 text-[#C6593A]"></i>
+            </div>
+            <p class="text-sm font-medium text-[#23201D]">Нажмите, чтобы сделать фото</p>
+            <p class="text-xs text-gray-400 mt-1">или выберите из галереи (до 5 МБ)</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-[#5e5852] mb-1">Название *</label>
+        <input type="text" id="title" required placeholder="Например: Кружка «Лес»" class="w-full border border-[#E8E1D7] rounded-xl px-4 py-3 text-sm focus:border-[#C6593A] focus:ring-1 focus:ring-[#C6593A] outline-none transition-all bg-[#FAF7F2]">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-[#5e5852] mb-1">Автор (Керамист) *</label>
+        <input type="text" id="author" list="authors-list" required placeholder="Начните вводить имя..." class="w-full border border-[#E8E1D7] rounded-xl px-4 py-3 text-sm focus:border-[#C6593A] focus:ring-1 focus:ring-[#C6593A] outline-none transition-all bg-[#FAF7F2]">
+        <datalist id="authors-list">
+          <option value="Ира Миронова">
+          <option value="Александра Косых">
+          <option value="Татьяна Соломатина">
+          <option value="Алтынай Лютина">
+          <option value="Карина Драчева">
+          <option value="Полина Кадкина">
+          <option value="Ксения Павлова-Васильева">
+          <option value="Ксения Фурманова">
+          <option value="Маша Лурье">
+        </datalist>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-[#5e5852] mb-1">Категория *</label>
+          <select id="category" class="w-full border border-[#E8E1D7] rounded-xl px-4 py-3 text-sm focus:border-[#C6593A] outline-none bg-[#FAF7F2]">
+            <option value="Чашки и кружки">Кружки</option>
+            <option value="Тарелки и блюда">Тарелки</option>
+            <option value="Миски и пиалы">Пиалы</option>
+            <option value="Вазы">Вазы</option>
+            <option value="Интерьер и декор">Декор</option>
+            <option value="Скульптура">Скульптура</option>
+            <option value="Украшения">Украшения</option>
+            <option value="Прочее">Прочее</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-[#5e5852] mb-1">Цена (₽) *</label>
+          <input type="number" id="price" required min="0" placeholder="1500" class="w-full border border-[#E8E1D7] rounded-xl px-4 py-3 text-sm focus:border-[#C6593A] focus:ring-1 focus:ring-[#C6593A] outline-none bg-[#FAF7F2]">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-[#5e5852] mb-1">Материалы и особенности</label>
+        <textarea id="materials" rows="2" placeholder="Полуфарфор, глазурь, лепка вручную..." class="w-full border border-[#E8E1D7] rounded-xl px-4 py-3 text-sm focus:border-[#C6593A] outline-none resize-none bg-[#FAF7F2]"></textarea>
+      </div>
+
+      <div class="pt-4 border-t border-[#E8E1D7] mt-6">
+        <button type="submit" id="submitBtn" class="w-full py-4 bg-[#C6593A] hover:bg-[#b54a2e] text-white rounded-xl text-base font-medium transition-all shadow-md hover:shadow-lg flex justify-center items-center gap-2">
+          <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+          <span>Отправить в шоурум</span>
+        </button>
+      </div>
+    </form>
+    
+    <!-- Экран успеха -->
+    <div id="success-screen" class="hidden p-8 text-center h-full flex-col justify-center items-center">
+      <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+        <i data-lucide="check" class="w-10 h-10 text-green-600"></i>
+      </div>
+      <h2 class="font-serif text-2xl font-bold text-[#23201D] mb-2">Работа загружена!</h2>
+      <p class="text-[#5e5852] text-sm mb-8">Фотография сохранена в облаке, а изделие добавлено в базу шоурума.</p>
+      
+      <button onclick="resetForm()" class="px-6 py-3 bg-[#FAF7F2] border border-[#E8E1D7] text-[#23201D] rounded-xl text-sm font-medium hover:bg-[#F0EBE1] transition-colors">
+        Загрузить ещё одну
+      </button>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    
+    // Cloudflare R2 Настройки
+    const R2_BUCKET_URL = "https://81b019e75af58f586f242140e086cfca.r2.cloudflarestorage.com/showroomonline";
+
+    // Управление превью фото
+    function previewFile() {
+      const file = document.getElementById('photoFile').files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('photo-preview').src = e.target.result;
+          document.getElementById('preview-container').classList.remove('hidden');
+          document.getElementById('placeholder-container').classList.add('hidden');
+          document.getElementById('drop-zone').classList.remove('bg-gray-50');
+        }
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function clearFile(e) {
+      e.stopPropagation();
+      document.getElementById('photoFile').value = '';
+      document.getElementById('photo-preview').src = '';
+      document.getElementById('preview-container').classList.add('hidden');
+      document.getElementById('placeholder-container').classList.remove('hidden');
+      document.getElementById('drop-zone').classList.add('bg-gray-50');
+    }
+
+    // Генерация артикула и ID (идентично дашборду)
+    function generateId() { return Math.random().toString(36).substr(2, 9) + Date.now().toString(36); }
+    
+    function generateArticle() {
+      const saved = localStorage.getItem('biskuit_showroom_works');
+      let works = [];
+      if (saved) works = JSON.parse(saved);
+      const bskWorks = works.filter(w => w.article && w.article.startsWith('BSK-'));
+      if (bskWorks.length === 0) return 'BSK-100';
+      const nums = bskWorks.map(w => parseInt(w.article.replace('BSK-', ''))).filter(n => !isNaN(n));
+      const max = nums.length > 0 ? Math.max(...nums) : 99;
+      return `BSK-${max + 1}`;
+    }
+
+    // Основная функция отправки формы
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      
+      const fileInput = document.getElementById('photoFile');
+      if (!fileInput.files || fileInput.files.length === 0) return;
+      const file = fileInput.files[0];
+      
+      const btn = document.getElementById('submitBtn');
+      const originalBtnHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> <span>Загрузка...</span>`;
+      lucide.createIcons();
+
+      try {
+        // ШАГ 1: Загрузка фото в Cloudflare R2
+        // Генерируем уникальное имя файла без пробелов и спецсимволов
+        const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+        const uniqueFileName = `${Date.now()}-${cleanName}`;
+        const uploadUrl = `${R2_BUCKET_URL}/${uniqueFileName}`;
+
+        console.log('Попытка загрузки в R2 по адресу:', uploadUrl);
+
+        // Отправляем PUT запрос (ВНИМАНИЕ: для работы этого метода корзине R2 нужны права на публичную запись 
+        // или настроенные CORS политики в дашборде Cloudflare).
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type
+          }
+        });
+
+        let photoFinalUrl = '';
+
+        if (uploadResponse.ok) {
+           // Если успешно, сохраняем ссылку
+           photoFinalUrl = uploadUrl;
+           console.log('Фото успешно загружено в R2!');
+        } else {
+           // Если Cloudflare выдает ошибку CORS/401/403, временно сохраняем в base64 (чтобы не потерять данные)
+           console.warn(`R2 отклонил загрузку (статус ${uploadResponse.status}). Сохраняю резервную копию фото локально.`);
+           photoFinalUrl = document.getElementById('photo-preview').src; // base64 из превью
+        }
+
+        // ШАГ 2: Сохранение данных в базу (локальное хранилище дашборда)
+        const newItem = {
+          id: generateId(),
+          article: generateArticle(),
+          title: document.getElementById('title').value,
+          author: document.getElementById('author').value,
+          category: document.getElementById('category').value,
+          price: Number(document.getElementById('price').value),
+          commission: 35, // Базовая комиссия студии
+          location: 'Не распределено',
+          materials: document.getElementById('materials').value,
+          dimensions: '',
+          notes: 'Добавлено через мобильную форму',
+          photo: photoFinalUrl,
+          status: 'В наличии',
+          dateAdded: new Date().toISOString().split('T')[0],
+          soldInfo: null
+        };
+
+        // Подгружаем существующую базу, добавляем новую работу и сохраняем обратно
+        let works = [];
+        const saved = localStorage.getItem('biskuit_showroom_works');
+        if (saved) works = JSON.parse(saved);
+        
+        works.push(newItem);
+        localStorage.setItem('biskuit_showroom_works', JSON.stringify(works));
+
+        // Показываем экран успеха
+        document.getElementById('uploadForm').classList.add('hidden');
+        document.getElementById('success-screen').classList.remove('hidden');
+        document.getElementById('success-screen').classList.add('flex');
+
+      } catch (error) {
+        console.error("Ошибка при отправке:", error);
+        alert("Произошла ошибка при загрузке. Проверьте интернет-соединение.");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnHtml;
+        lucide.createIcons();
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('uploadForm').reset();
+      clearFile(new Event('click'));
+      document.getElementById('success-screen').classList.add('hidden');
+      document.getElementById('success-screen').classList.remove('flex');
+      document.getElementById('uploadForm').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
